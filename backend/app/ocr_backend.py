@@ -7,6 +7,8 @@ from typing import List
 from pdf2image import convert_from_path
 from PIL import Image
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,16 +16,15 @@ class OCRError(RuntimeError):
     pass
 
 
-def preprocess_image(image: Image.Image) -> Image.Image:
+def preprocess_image(image: Image.Image) -> np.ndarray:
     import cv2
-    import numpy as np
 
     img_array = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
     img_array = cv2.medianBlur(img_array, 3)
     img_array = cv2.adaptiveThreshold(
         img_array, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 2
     )
-    return Image.fromarray(img_array)
+    return cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
 
 
 def ocr_pages(pdf_path: str, dpi: int = 350) -> List[str]:
