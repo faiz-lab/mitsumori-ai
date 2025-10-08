@@ -5,3 +5,6 @@ backend/.python-version
 frontend/node_modules/
 .DS_Store
 storage/
+backend/uv.lock
+frontend/bun.lock
+backend/requirements.txt
