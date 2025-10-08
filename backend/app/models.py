@@ -29,7 +29,7 @@ class ResultRow(BaseModel):
     token: str
     matched_type: str
     matched_hinban: str
-    zaiko: Optional[str] = None
+    zaiku: Optional[str] = None
 
 
 class FailureRow(BaseModel):
