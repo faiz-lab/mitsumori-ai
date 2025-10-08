@@ -54,7 +54,30 @@ def ocr_pages(pdf_path: str, dpi: int = 350) -> List[str]:
             raise OCRError(
                 "OCR処理に失敗しました。YomiTokuのローカルモデル配置と権限を確認してください。"
             ) from exc
-        text = " ".join(block.text for block in result.blocks)
+
+        if isinstance(result, tuple):
+            result_candidates = [item for item in result if item is not None]
+            result_obj = next(
+                (
+                    item
+                    for item in result_candidates
+                    if hasattr(item, "blocks") or hasattr(item, "pages")
+                ),
+                result_candidates[0] if result_candidates else result,
+            )
+        else:
+            result_obj = result
+
+        if hasattr(result_obj, "blocks"):
+            blocks = result_obj.blocks
+        elif hasattr(result_obj, "pages"):
+            blocks = [block for page in result_obj.pages for block in getattr(page, "blocks", [])]
+        else:
+            raise OCRError(
+                "YomiTokuのOCR結果の形式を解釈できません。ライブラリのバージョンを確認してください。"
+            )
+
+        text = " ".join(getattr(block, "text", "") for block in blocks if getattr(block, "text", ""))
         texts.append(text)
     return texts
 
