@@ -1,0 +1,19 @@
+[project]
+name = "ai-mitsumori-system"
+version = "0.1.0"
+description = "Offline PDF OCR and hinban-matching system using FastAPI + YomiToku"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pdfplumber",
+    "pdf2image",
+    "opencv-python",
+    "pandas",
+    "pydantic",
+    "python-multipart",
+    "yomitoku",
+    "pillow",
+    "numpy",
+    "pypdf2",
+]
