@@ -16,4 +16,5 @@ dependencies = [
     "pillow",
     "numpy",
     "pypdf2",
+    "pytesseract>=0.3.13",
 ]
