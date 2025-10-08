@@ -27,10 +27,26 @@ class DatabaseMatcher:
         self._load()
 
     def _load(self) -> None:
-        try:
-            df = pd.read_csv(self.csv_path)
-        except UnicodeDecodeError:
-            df = pd.read_csv(self.csv_path, encoding="cp932")
+        encodings_to_try = [None, "utf-8-sig", "cp932", "shift_jis", "utf-16", "utf-16le", "utf-16be"]
+        df = None
+        last_error: UnicodeDecodeError | None = None
+        for encoding in encodings_to_try:
+            try:
+                if encoding is None:
+                    df = pd.read_csv(self.csv_path)
+                else:
+                    df = pd.read_csv(self.csv_path, encoding=encoding)
+                break
+            except UnicodeDecodeError as exc:  # pragma: no cover - depends on input files
+                last_error = exc
+                logger.debug("Failed to decode %s with encoding %s", self.csv_path, encoding)
+        if df is None:
+            logger.warning(
+                "Falling back to replacement characters when decoding %s due to encoding error: %s",
+                self.csv_path,
+                last_error,
+            )
+            df = pd.read_csv(self.csv_path, encoding="utf-8", encoding_errors="replace")
         if "hinban" not in df.columns or "kidou" not in df.columns:
             raise ValueError("CSVに 'hinban' と 'kidou' 列が必要です。ファイルを確認してください。")
         zaiku_exists = "zaiku" in df.columns
