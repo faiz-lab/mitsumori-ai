@@ -110,7 +110,7 @@ def process_task(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
             if tokens:
                 state.totals.tokens += len(tokens)
             for token in tokens:
-                hinban_matches, spec_matches = matcher.match_token(token)
+                hinban_matches, kidou_matches = matcher.match_token(token)
                 matched = False
                 for row in hinban_matches:
                     results.append(
@@ -120,13 +120,13 @@ def process_task(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
                             token=token,
                             matched_type="hinban",
                             matched_hinban=row.hinban,
-                            zaiko=row.zaiko,
+                            zaiku=row.zaiku,
                         )
                     )
                     state.totals.hit_hinban += 1
                     matched = True
-                if spec_matches:
-                    for row in spec_matches:
+                if kidou_matches:
+                    for row in kidou_matches:
                         results.append(
                             ResultRow(
                                 pdf_name=pdf_name,
@@ -134,7 +134,7 @@ def process_task(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
                                 token=token,
                                 matched_type="spec",
                                 matched_hinban=row.hinban,
-                                zaiko=row.zaiko,
+                                zaiku=row.zaiku,
                             )
                         )
                         state.totals.hit_spec += 1
@@ -165,9 +165,9 @@ def process_task(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
 
     write_csv(
         results_csv,
-        ["pdf_name", "page", "token", "matched_type", "matched_hinban", "zaiko"],
+        ["pdf_name", "page", "token", "matched_type", "matched_hinban", "zaiku"],
         (
-            [r.pdf_name, r.page, r.token, r.matched_type, r.matched_hinban, r.zaiko or ""]
+            [r.pdf_name, r.page, r.token, r.matched_type, r.matched_hinban, r.zaiku or ""]
             for r in results
         ),
     )
