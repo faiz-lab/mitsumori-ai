@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pdfplumber
+pdf2image
+opencv-python
+pandas
+pydantic
+python-multipart
+yomitoku
+Pillow
+numpy
+PyPDF2
