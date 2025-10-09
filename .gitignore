@@ -8,3 +8,4 @@ storage/
 backend/uv.lock
 frontend/bun.lock
 backend/requirements.txt
+backend/app/sample1.pdf

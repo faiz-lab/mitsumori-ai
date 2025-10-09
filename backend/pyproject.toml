@@ -17,4 +17,5 @@ dependencies = [
     "numpy",
     "pypdf2",
     "pytesseract>=0.3.13",
+    "openai>=2.2.0",
 ]

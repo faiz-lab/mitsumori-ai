@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import List
-
+from pprint import pprint
 import pdfplumber
 
 from .ocr_backend import ocr_pages, OCRError
@@ -24,11 +24,10 @@ def extract_text_pages(pdf_path: Path) -> List[str]:
         logger.info("Falling back to OCR for %s", pdf_path.name)
         try:
             texts = ocr_pages(str(pdf_path))
+            pprint(texts)
         except OCRError:
             raise
         except Exception as exc:  # pragma: no cover
             logger.exception("Unexpected OCR failure")
             raise OCRError("OCRの初期化に失敗しました。ログを確認してください。") from exc
     return texts
-
-
