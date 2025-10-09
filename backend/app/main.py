@@ -181,6 +181,87 @@ def process_task(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
         ([f.pdf_name, f.page, f.token] for f in failures),
     )
 
+def process_task_semantic(task_id: str, csv_path: Path, pdf_paths: List[Path]) -> None:
+    state = TASKS[task_id]
+    try:
+        # 这里不需要 DatabaseMatcher；process_pdf_semantic 里会自己读 csv
+        import os
+        base_url = os.getenv("OPENAI_BASE_URL") or os.getenv("CUSTOM_OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        api_key  = os.getenv("OPENAI_API_KEY")  or os.getenv("CUSTOM_OPENAI_API_KEY")
+        model    = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        timeout  = int(os.getenv("OPENAI_TIMEOUT", "60"))
+
+        all_results: List[ResultRow] = []
+        all_failures: List[FailureRow] = []
+
+        # 页数粗略统计
+        state.pages = len(pdf_paths)
+
+        for i, pdf_path in enumerate(pdf_paths, 1):
+            df = process_pdf_semantic(
+                pdf_path=str(pdf_path),
+                db_path=str(csv_path),
+                model=model,
+                base_url=base_url,
+                api_key=api_key,
+                timeout=timeout,
+                save=False,
+            )
+
+            # 把 GPT 匹配结果映射成老的 results/failures 结构，前端不用改
+            pdf_name = pdf_path.name
+            for _, r in df.iterrows():
+                if r["match_status"] in ("EXACT","SUBSTR","KIDOU","FUZZY"):
+                    all_results.append(
+                        ResultRow(
+                            pdf_name=pdf_name,
+                            page=1,
+                            token=str(r["input_hinban"]),
+                            matched_type="hinban",
+                            matched_hinban=str(r.get("matched_hinban") or ""),
+                            zaiku=None,
+                        )
+                    )
+                    state.totals.hit_hinban += 1
+                else:
+                    all_failures.append(
+                        FailureRow(
+                            pdf_name=pdf_name,
+                            page=1,
+                            token=str(r["input_hinban"]),
+                        )
+                    )
+                    state.totals.fail += 1
+
+            state.totals.tokens += len(df)  # 当作“处理 token 数”
+            state.progress = int(i / max(1, len(pdf_paths)) * 100)
+
+        # 写 CSV，沿用旧下载按钮
+        results_csv = state.directory / "results.csv"
+        failures_csv = state.directory / "failure.csv"
+
+        write_csv(
+            results_csv,
+            ["pdf_name", "page", "token", "matched_type", "matched_hinban", "zaiku"],
+            (
+                [r.pdf_name, r.page, r.token, r.matched_type, r.matched_hinban, r.zaiku or ""]
+                for r in all_results
+            ),
+        )
+        write_csv(
+            failures_csv,
+            ["pdf_name", "page", "token"],
+            ([f.pdf_name, f.page, f.token] for f in all_failures),
+        )
+
+        state.results  = all_results
+        state.failures = all_failures
+        state.progress = 100
+
+    except Exception as exc:
+        state.error = f"GPT処理で失敗: {exc}"
+        state.progress = 100
+
 
 @app.post("/api/upload", response_model=UploadResponse)
 async def upload(
@@ -202,7 +283,7 @@ async def upload(
 
     pdf_paths: List[Path] = []
     for pdf_file in pdfs:
-        if not pdf_file.filename.lower().endswith(".pdf"):
+        if not pdf_file.filename or not pdf_file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail=f"PDF形式のみ対応しています: {pdf_file.filename}")
         pdf_path = task_dir / pdf_file.filename
         save_upload_file(pdf_file, pdf_path)
@@ -210,7 +291,7 @@ async def upload(
 
     state = TaskState(task_id=task_id, directory=task_dir)
     TASKS[task_id] = state
-    background_tasks.add_task(process_task, task_id, csv_path, pdf_paths)
+    background_tasks.add_task(process_task_semantic, task_id, csv_path, pdf_paths)
 
     return UploadResponse(task_id=task_id)
 

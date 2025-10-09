@@ -1,3 +1,4 @@
+# match.py
 from __future__ import annotations
 
 import logging
@@ -32,12 +33,13 @@ class DatabaseMatcher:
         last_error: UnicodeDecodeError | None = None
         for encoding in encodings_to_try:
             try:
-                if encoding is None:
-                    df = pd.read_csv(self.csv_path)
-                else:
-                    df = pd.read_csv(self.csv_path, encoding=encoding)
+                # 关键：强制按字符串读，并马上 fillna("")
+                read_kwargs = {"dtype": str}
+                if encoding is not None:
+                    read_kwargs["encoding"] = encoding
+                df = pd.read_csv(self.csv_path, **read_kwargs).fillna("")
                 break
-            except UnicodeDecodeError as exc:  # pragma: no cover - depends on input files
+            except UnicodeDecodeError as exc:  # pragma: no cover
                 last_error = exc
                 logger.debug("Failed to decode %s with encoding %s", self.csv_path, encoding)
         if df is None:
@@ -46,36 +48,52 @@ class DatabaseMatcher:
                 self.csv_path,
                 last_error,
             )
-            df = pd.read_csv(self.csv_path, encoding="utf-8", encoding_errors="replace")
+            df = pd.read_csv(self.csv_path, dtype=str, encoding="utf-8", encoding_errors="replace").fillna("")
+
         if "hinban" not in df.columns or "kidou" not in df.columns:
             raise ValueError("CSVに 'hinban' と 'kidou' 列が必要です。ファイルを確認してください。")
-        zaiku_exists = "zaiku" in df.columns
+
+        has_zaiku = "zaiku" in df.columns
+
         for _, row in df.iterrows():
-            hinban = normalize_text(str(row.get("hinban", "")))
-            kidou = normalize_text(str(row.get("kidou", "")))
-            zaiku = str(row.get("zaiku")) if zaiku_exists else None
+            # 统一正规化键
+            hinban_raw = (row.get("hinban") or "").strip()
+            kidou_raw  = (row.get("kidou")  or "").strip()
+
+            hinban = normalize_text(hinban_raw)
+            kidou  = normalize_text(kidou_raw)
+
+            # 在庫不要 normalize；清洗 + 兜底，避免 "nan"/空串
+            zaiku_raw = (row.get("zaiku") or "") if has_zaiku else ""
+            zaiku = zaiku_raw.strip()
+            if zaiku == "" or zaiku.lower() == "nan":
+                zaiku = None  # 后续由 API/DF 层兜底成 "-"
+
             match_row = MatchRow(hinban=hinban, kidou=kidou, zaiku=zaiku)
+
             if hinban:
                 self.hinban_map[hinban] = match_row
+
+            # 确保 token 的生成与查询用同一套 normalization 逻辑
             for token in extract_tokens(kidou):
                 self.kidou_map.setdefault(token, []).append(match_row)
 
     def match_token(self, token: str) -> tuple[List[MatchRow], List[MatchRow]]:
+        normalized = normalize_text(token)
         hinban_matches: List[MatchRow] = []
         kidou_matches: List[MatchRow] = []
-        normalized = normalize_text(token)
+
         row = self.hinban_map.get(normalized)
         if row:
             hinban_matches.append(row)
+
         kidou_matches = self.kidou_map.get(normalized, [])
         return hinban_matches, kidou_matches
 
     def retry(self, token: str) -> List[str]:
         normalized = normalize_text(token)
-        candidates = []
+        candidates: List[str] = []
         if normalized in self.hinban_map:
             candidates.append(self.hinban_map[normalized].hinban)
         candidates.extend({row.hinban for row in self.kidou_map.get(normalized, [])})
         return sorted(set(candidates))
-
-
