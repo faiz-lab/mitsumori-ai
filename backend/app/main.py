@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +26,7 @@ from .models import (
     UploadResponse,
 )
 from .ocr_backend import OCRError
+from .semantic_match import process_pdf_semantic
 from .utils import ensure_storage_dir, extract_tokens, save_upload_file, write_csv
 
 logger = logging.getLogger(__name__)
@@ -268,5 +271,50 @@ async def download_csv(task_id: str, type: str):
     if not target.exists():
         raise HTTPException(status_code=404, detail="CSVがまだ生成されていません。")
     return FileResponse(target, media_type="text/csv", filename=target.name)
+
+
+@app.post("/api/semantic-match")
+async def semantic_match_api(
+    pdf: UploadFile = File(...),
+    csv: UploadFile = File(...),
+):
+    pdf_path = None
+    csv_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf_tmp:
+            pdf_tmp.write(await pdf.read())
+            pdf_path = pdf_tmp.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as csv_tmp:
+            csv_tmp.write(await csv.read())
+            csv_path = csv_tmp.name
+
+        base_url = (
+            os.getenv("OPENAI_BASE_URL")
+            or os.getenv("CUSTOM_OPENAI_BASE_URL")
+            or "https://api.openai.com/v1"
+        )
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("CUSTOM_OPENAI_API_KEY")
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        timeout = int(os.getenv("OPENAI_TIMEOUT", "60"))
+
+        df = process_pdf_semantic(
+            pdf_path=pdf_path,
+            db_path=csv_path,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            save=False,
+        )
+        return df.to_dict(orient="records")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - unexpected runtime
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        if pdf_path and os.path.exists(pdf_path):
+            os.unlink(pdf_path)
+        if csv_path and os.path.exists(csv_path):
+            os.unlink(csv_path)
 
 
