@@ -24,7 +24,7 @@ const UploadPanel: React.FC<UploadPanelProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-        <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '15px' }}>DB CSV</div>
+        <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '15px' }}>データベース CSV</div>
         <CsvDropzone onDrop={onDbDrop} file={dbFile} />
         {dbFile && (
           <div
@@ -58,7 +58,7 @@ const UploadPanel: React.FC<UploadPanelProps> = ({
         )}
       </div>
       <div style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-        <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '15px' }}>PDFs</div>
+        <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '15px' }}>姿図面PDF</div>
         <PdfDropzone onDrop={onPdfDrop} files={pdfFiles} />
         {pdfFiles.length > 0 && (
           <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>

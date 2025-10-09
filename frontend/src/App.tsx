@@ -172,7 +172,7 @@ const App: React.FC = () => {
           fontSize: '18px',
         }}
       >
-        AI見積システム
+        AI姿図面見積システム
       </header>
       <div style={{ display: 'flex', padding: '24px', gap: '24px' }}>
         <div
