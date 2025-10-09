@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List
+from dotenv import load_dotenv
+load_dotenv()
 
 import pandas as pd
 from openai import OpenAI
